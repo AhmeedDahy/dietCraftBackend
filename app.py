@@ -24,9 +24,10 @@ class Info(BaseModel):
   height: float
   gender: str
   age: int
-  activity_level: str
-  goal: str
+  activity: str
+  plan: str
   rate: str | None = None
+  bodyFat: float | None = None
 
 
 @app.post("/diet_recommendation")
@@ -35,7 +36,7 @@ async def diet_recommendation(info: Info):
     return {"error": "Your weight or height must be bigger than 0"}
   
   calcBmi = bmi(info.weight, info.height).calculate_bmi()
-  calcBmr = BMRCalculator(info.gender, info.weight, info.height, info.age, info.activity_level, info.goal, info.rate).calculate_bmr()
+  calcBmr = BMRCalculator(info.gender, info.weight, info.height, info.age, info.activity, info.plan, info.rate).calculate_bmr()
   return {"Bmi":{"bmi" : calcBmi[0] ,'bmiStatus' : calcBmi[1] , "unit" : "kg/cm"}, "Bmr" : calcBmr }
   
 
