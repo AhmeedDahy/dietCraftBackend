@@ -1,2 +1,6 @@
 fastapi
 uvicorn[standard]
+scikit-learn==1.6.0
+pandas==2.2.3
+numpy==2.0.2
+requests
