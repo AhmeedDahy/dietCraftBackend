@@ -7,8 +7,6 @@ This FastAPI-based backend provides dietary recommendations planning based on us
 ## Features
 
 - **Diet Recommendation**: Provides personalized diet recommendations based on user BMI, BMR, and nutritional requirements.
-- **Custom Meal Plan**: Allows users to get meal suggestions based on specified macronutrient values.
-- **Food Data Retrieval**: Fetches predefined food data from a JSON file.
 - **Machine Learning**: Uses KMeans clustering and scaling techniques to classify users into diet categories based on nutritional needs.
 - **CORS Enabled**: Configured for frontend integration with a Vercel-hosted app.
 
