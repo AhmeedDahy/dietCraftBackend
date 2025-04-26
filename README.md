@@ -64,7 +64,7 @@ Generates a personalized diet recommendation based on user BMI, BMR, and nutriti
   "age": 30,
   "activity": "moderate",
   "plan": "maintain",
-  "rate": "standard",
+  "rate": "1",
   "bodyFat": 18.5
 }
 ```

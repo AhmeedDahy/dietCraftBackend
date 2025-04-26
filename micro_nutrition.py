@@ -69,17 +69,4 @@ class BMRCalculator:
 
         return results
 
-# Example usage
-if __name__ == "__main__":
-    gender = "male"
-    weight = 116
-    height = 175
-    age = 22
-    activity_level = "lightly active"
-    goal = "loss"
-    rate = "1"  # Use None if no specific rate
-
-    bmr_calculator = BMRCalculator(gender, weight, height, age, activity_level, goal, rate)
-    results = bmr_calculator.calculate_bmr()
-    print(results)
 

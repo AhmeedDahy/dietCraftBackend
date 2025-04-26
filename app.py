@@ -1,19 +1,26 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from bmi import bmi
-from micro_nutrition import BMRCalculator
-from getData import CSVRepository
+from pydantic import BaseModel, conint, confloat, validator, Field
 
 import json
 import pickle
 import numpy as np
 import pandas as pd
-import ast
+
+from bmi import bmi
+from micro_nutrition import BMRCalculator
 
 
 app = FastAPI()
+
+# Constants for validation
+MIN_HEIGHT = 100
+MAX_HEIGHT = 250
+MIN_WEIGHT = 40
+MAX_WEIGHT = 300
+MIN_AGE = 13
+MAX_AGE = 110
 
 # CORS Configuration
 origins = [
@@ -28,65 +35,95 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# data = pd.read_csv(r"cleaned_recipes_2.csv")
-data = CSVRepository()
-data = data.get_csv_data()
+
+data = pd.read_csv(r"D:\edu\cleaned_recipes_2.csv")
+# data = CSVRepository()
+# data = data.get_csv_data()
+
+
 
 
 # Pydantic Models
 class Info(BaseModel):
-    weight: float
-    height: float
+    height: float = Field(..., ge=MIN_HEIGHT, le=MAX_HEIGHT)
+    weight: float = Field(..., ge=MIN_WEIGHT, le=MAX_WEIGHT)
+    age: int = Field(..., ge=MIN_AGE, le=MAX_AGE)
     gender: str
-    age: int
     activity: str
     plan: str
-    rate: str | None = None
-    bodyFat: float | None = None
+    rate: str
 
-class CustomNutrition(BaseModel):
-    calories: float
-    protein: float
-    fat: float
-    carb: float
-    num_meals: int | None = None
-    ingredients: str | None = None
+    @validator('gender')
+    def validate_gender(cls, v):
+        if v.lower() not in ['male', 'female']:
+            raise ValueError('Gender must be either "male" or "female"')
+        return v.lower()
+
+    @validator('activity')
+    def validate_activity(cls, v):
+        valid_activities = ['sedentary', 'lightlyActive', 'moderateActivity', 'active', 'veryActive']
+        if v not in valid_activities:
+            raise ValueError(f'Activity must be one of: {", ".join(valid_activities)}')
+        return v
+
+
+
 
 
 # Endpoints
 @app.post("/diet_recommendation")
 async def diet_recommendation(info: Info):
-    if info.weight <= 0 or info.height <= 0:
-        raise HTTPException(status_code=400, detail="Your weight or height must be bigger than 0")
+    try:
+        # Load models safely
+        try:
+            with open("KMeans_Model.pkl", "rb") as file:
+                kmeans = pickle.load(file)
+            with open("scaler.pkl", "rb") as file:
+                scaler = pickle.load(file)
+        except FileNotFoundError as e:
+            raise HTTPException(status_code=500, detail=f"Model file not found: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
+
+        # Calculate metrics
+        calcBmi = bmi(info.weight, info.height).calculate_bmi()
+        calcBmr = BMRCalculator(
+            info.gender, 
+            info.weight, 
+            info.height, 
+            info.age, 
+            info.activity, 
+            info.plan, 
+            info.rate
+        ).calculate_bmr()
+
+        # Prepare user data for clustering
+        user_needs = {
+            'Calories': calcBmr['totalDailyCaloricNeeds']['value'],
+            'FatContent': calcBmr['fat']["preferred"],
+            'ProteinContent': calcBmr['protein']["preferred"],
+            'CarbohydrateContent': calcBmr['carbohydrates']["preferred"]
+        }
+        
+        user_df = pd.DataFrame([user_needs])
+        user_df_scaled = scaler.transform(user_df)
+        
+        # Predict cluster
+        user_cluster = int(kmeans.predict(user_df_scaled)[0])
+
+        return {
+            "Bmi": {
+                "value": calcBmi[0],
+                "status": calcBmi[1],
+                "unit": "kg/m²"
+            },
+            "Bmr": calcBmr,
+            "Cluster": user_cluster,
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
-    with open("KMeans_Model.pkl", "rb") as file:
-        kmeans = pickle.load(file)
-
-    with open("scaler.pkl", "rb") as file:
-        Scaler = pickle.load(file)
-
-    calcBmi = bmi(info.weight, info.height).calculate_bmi()
-    calcBmr = BMRCalculator(info.gender, info.weight, info.height, info.age, info.activity, info.plan, info.rate).calculate_bmr()
-    user_needs = {
-    'Calories': calcBmr['totalDailyCaloricNeeds']['value'],
-    'FatContent': calcBmr['fat']["preferred"],
-    'ProteinContent': calcBmr['protein']["preferred"],
-    'CarbohydrateContent': calcBmr['carbohydrates']["preferred"]
-    }
-    user_df = pd.DataFrame([user_needs])
-
-# Scale the user's feature vector
-    user_df_scaled = Scaler.transform(user_df)
-
-    user_cluster = kmeans.predict(user_df_scaled)
-    user_cluster = int(user_cluster[0])
-    results = data[data['Cluster'] == user_cluster].sample(50)
-    results['RecipeIngredientParts'] = results['RecipeIngredientParts'].apply(ast.literal_eval).tolist()
-    results['RecipeInstructions'] = results['RecipeInstructions'].apply(ast.literal_eval).tolist()
-    results['Images'] = results['Images'].apply(ast.literal_eval).tolist()
-    results['DietCategory'] = results['DietCategory'].apply(ast.literal_eval).tolist()
-
-    return {"Bmi": {"bmi": calcBmi[0], "bmiStatus": calcBmi[1], "unit": "kg/cm"}, "Bmr": calcBmr, "Cluster": user_cluster, "Recommendation": jsonable_encoder(results.to_dict(orient='records'))}
 
 @app.get("/food-data")
 async def get_json_data():
@@ -100,9 +137,11 @@ async def get_json_data():
     except json.JSONDecodeError:
         raise HTTPException(status_code=400, detail="Invalid JSON format")
 
-@app.post("/custom_meal")
-async def custom_meal(custom: CustomNutrition):
-    custom_nut = {'Calories': custom.calories, 'Protein': custom.protein, 'Fat': custom.fat, 'Carb': custom.carb}
 
+@app.get("/recommended_meals/")
+async def search_items(cluster: int):
+    if cluster < 0 or cluster > 5:
+        raise HTTPException(status_code=400, detail="Cluster must be between 0 and 5")
     
-    return {"data": ''}
+    results = data[data['Cluster'] == cluster].sample(1000)
+    return {"Recommendation": jsonable_encoder(results.to_dict(orient='records'))}
