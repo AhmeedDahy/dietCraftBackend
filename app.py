@@ -36,7 +36,7 @@ app.add_middleware(
 )
 
 
-data = pd.read_csv(r"D:\edu\cleaned_recipes_2.csv")
+data = pd.read_csv(r"C:\Users\Dahy\cleaned_recipes_2.csv")
 # data = CSVRepository()
 # data = data.get_csv_data()
 
@@ -113,8 +113,8 @@ async def diet_recommendation(info: Info):
 
         return {
             "Bmi": {
-                "value": calcBmi[0],
-                "status": calcBmi[1],
+                "bmi": calcBmi[0],
+                "bmiStatus": calcBmi[1],
                 "unit": "kg/m²"
             },
             "Bmr": calcBmr,
@@ -143,5 +143,5 @@ async def search_items(cluster: int):
     if cluster < 0 or cluster > 5:
         raise HTTPException(status_code=400, detail="Cluster must be between 0 and 5")
     
-    results = data[data['Cluster'] == cluster].sample(1000)
-    return {"Recommendation": jsonable_encoder(results.to_dict(orient='records'))}
+    results = data[data['Cluster'] == cluster].sample(1000,random_state=42+cluster)
+    return {"Recommendation": results.to_dict(orient='records')}
