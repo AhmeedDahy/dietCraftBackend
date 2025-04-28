@@ -38,7 +38,7 @@ This FastAPI-based backend provides dietary recommendations planning based on us
 
 3. Run the API:
    ```sh
-   uvicorn main:app --reload
+   uvicorn app:app --reload --port=344
    ```
 
 # API Endpoints
@@ -64,8 +64,7 @@ Generates a personalized diet recommendation based on user BMI, BMR, and nutriti
   "age": 30,
   "activity": "moderate",
   "plan": "maintain",
-  "rate": "1",
-  "bodyFat": 18.5
+  "rate": "1"
 }
 ```
 
@@ -75,6 +74,23 @@ Generates a personalized diet recommendation based on user BMI, BMR, and nutriti
 {
   "Bmi": {...},
   "Bmr": {...},
-  "recommendation": [{..},{..},{..},...],
+  "Cluster": 1:4,
+}
+```
+
+## **2. Recommended meals**
+
+### `GET /recommended_meals`
+
+**Description:**  
+Get your recommended meals based on your nutritional needs.
+
+**Search query: number(1:4)**
+
+**Response Body:**
+
+```json
+{
+  "Meals":[{...}, {...}, {...}, {...}, .....]
 }
 ```
