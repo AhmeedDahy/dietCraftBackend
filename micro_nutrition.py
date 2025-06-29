@@ -1,18 +1,13 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[5]:
-
-
 class BMRCalculator:
-    def __init__(self, gender, weight, height, age, activity_level, goal, rate=None):
+    def __init__(self, gender, weight, height, age, activity, goal):
         self.gender = gender
         self.weight = weight
         self.height = height
         self.age = age
-        self.activity_level = activity_level
+        self.activity_level = activity
         self.goal = goal
-        self.rate = rate
+        # self.rate = rate
+
 
     def calculate_bmr(self):
         # Mifflin-St Jeor Equation
@@ -27,11 +22,21 @@ class BMRCalculator:
             "veryActive": 1.9
         }
 
+        # rate levels for weight gain/loss
+        rate_levels = {
+            "sedentary": "0.5",
+            "lightlyActive": "0.5",
+            "moderateActivity": "1",
+            "active":"1",
+            "veryActive": "1"
+        }
+
+        rate = rate_levels[self.activity_level]
         total_calories = bmr * activity_levels[self.activity_level]
 
         # Weight goal adjustment
         if self.goal in ["loss", "gain"]:
-            adjustment = 1000 if self.rate == "1" else 500
+            adjustment = 1000 if rate == "1" else 500
             total_calories += -adjustment if self.goal == "loss" else adjustment
 
         # Macronutrient calculation

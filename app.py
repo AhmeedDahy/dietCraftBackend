@@ -1,6 +1,8 @@
+import re
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
+import ollama
 from pydantic import BaseModel, conint, confloat, validator, Field
 
 import json
@@ -10,6 +12,7 @@ import pandas as pd
 
 from bmi import bmi
 from micro_nutrition import BMRCalculator
+from water_intake import calcWaterIntake
 
 
 app = FastAPI()
@@ -51,7 +54,7 @@ class Info(BaseModel):
     gender: str
     activity: str
     plan: str
-    rate: str
+    # rate: str
 
     @validator('gender')
     def validate_gender(cls, v):
@@ -66,7 +69,8 @@ class Info(BaseModel):
             raise ValueError(f'Activity must be one of: {", ".join(valid_activities)}')
         return v
 
-
+class MessageInput(BaseModel):
+    message: str = Field(..., min_length=1, max_length=1000)
 
 
 
@@ -93,16 +97,18 @@ async def diet_recommendation(info: Info):
             info.height, 
             info.age, 
             info.activity, 
-            info.plan, 
-            info.rate
+            info.plan
+            # info.rate
         ).calculate_bmr()
+        waterClac = calcWaterIntake(info.weight,info.activity)
 
         # Prepare user data for clustering
+        # per meal
         user_needs = {
-            'Calories': calcBmr['totalDailyCaloricNeeds']['value'],
-            'FatContent': calcBmr['fat']["preferred"],
-            'ProteinContent': calcBmr['protein']["preferred"],
-            'CarbohydrateContent': calcBmr['carbohydrates']["preferred"]
+            'Calories': calcBmr['BMR']['value'] / 5,
+            'FatContent': calcBmr['fat']["preferred"] / 5,
+            'ProteinContent': calcBmr['protein']["preferred"] / 5,
+            'CarbohydrateContent': calcBmr['carbohydrates']["preferred"] / 5
         }
         
         user_df = pd.DataFrame([user_needs])
@@ -119,6 +125,7 @@ async def diet_recommendation(info: Info):
             },
             "Bmr": calcBmr,
             "Cluster": user_cluster,
+            "WaterIntake": waterClac
         }
 
     except Exception as e:
@@ -143,5 +150,20 @@ async def search_items(cluster: int):
     if cluster < 0 or cluster > 5:
         raise HTTPException(status_code=400, detail="Cluster must be between 0 and 5")
     
-    results = data[data['Cluster'] == cluster].sample(1000,random_state=42+cluster)
+    results = data[data['Cluster'] == cluster].sample(1000)
     return {"Recommendation": results.to_dict(orient='records')}
+
+
+
+@app.post("/chat")
+async def chat(request: MessageInput):
+    try:
+        response = ollama.chat(model="qwen3:1.7b",
+                            messages=[{"role": "system", "content": 'You are a helpful assistant. Only return the final answer directly. Do not explain or show your reasoning. Avoid using <think> tags.'},
+                            {"role": "user", "content": request.message}])['message']['content']
+        row_response = re.split(r'</think>\s*', response, maxsplit=1)[-1]
+        return {
+            "response": row_response.strip(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
