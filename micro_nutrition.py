@@ -1,12 +1,12 @@
 class BMRCalculator:
-    def __init__(self, gender, weight, height, age, activity, goal):
+    def __init__(self, gender, weight, height, age, activity, goal,rate="0"):
         self.gender = gender
         self.weight = weight
         self.height = height
         self.age = age
         self.activity_level = activity
         self.goal = goal
-        # self.rate = rate
+        self.rate = rate
 
 
     def calculate_bmr(self):
@@ -31,12 +31,12 @@ class BMRCalculator:
             "veryActive": "1"
         }
 
-        rate = rate_levels[self.activity_level]
+        # rate = rate_levels[self.activity_level]
         total_calories = bmr * activity_levels[self.activity_level]
 
         # Weight goal adjustment
         if self.goal in ["loss", "gain"]:
-            adjustment = 1000 if rate == "1" else 500
+            adjustment = 1000 if self.rate == "1" else 500
             total_calories += -adjustment if self.goal == "loss" else adjustment
 
         # Macronutrient calculation

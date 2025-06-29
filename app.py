@@ -54,7 +54,7 @@ class Info(BaseModel):
     gender: str
     activity: str
     plan: str
-    # rate: str
+    rate: str
 
     @validator('gender')
     def validate_gender(cls, v):
@@ -97,8 +97,8 @@ async def diet_recommendation(info: Info):
             info.height, 
             info.age, 
             info.activity, 
-            info.plan
-            # info.rate
+            info.plan,
+            info.rate
         ).calculate_bmr()
         waterClac = calcWaterIntake(info.weight,info.activity)
 
