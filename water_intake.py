@@ -16,6 +16,6 @@ def calcWaterIntake(weight_kg, activityLevel):
         extra_water_liters = (exercise_minutes / 30.0) * (12 / 33.814)
         water_intake_liters += extra_water_liters
 
-    cups = (water_intake_liters * 1000) / 200
+    cups = (water_intake_liters * 1000) / 250
 
     return {'liter':round(water_intake_liters, 2),"cups": round(cups)}

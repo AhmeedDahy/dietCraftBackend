@@ -2,14 +2,13 @@ import re
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-import ollama
 from pydantic import BaseModel, conint, confloat, validator, Field
 
 import json
 import pickle
 import numpy as np
 import pandas as pd
-
+import random
 from bmi import bmi
 from micro_nutrition import BMRCalculator
 from water_intake import calcWaterIntake
@@ -37,13 +36,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-data = pd.read_csv(r"C:\Users\Dahy\cleaned_recipes_2.csv")
-# data = CSVRepository()
-# data = data.get_csv_data()
-
-
 
 
 # Pydantic Models
@@ -105,10 +97,10 @@ async def diet_recommendation(info: Info):
         # Prepare user data for clustering
         # per meal
         user_needs = {
-            'Calories': calcBmr['BMR']['value'] / 5,
-            'FatContent': calcBmr['fat']["preferred"] / 5,
-            'ProteinContent': calcBmr['protein']["preferred"] / 5,
-            'CarbohydrateContent': calcBmr['carbohydrates']["preferred"] / 5
+            'Calories': calcBmr['BMR']['value'] / 6,
+            'FatContent': calcBmr['fat']["preferred"] / 6,
+            'ProteinContent': calcBmr['protein']["preferred"] / 6,
+            'CarbohydrateContent': calcBmr['carbohydrates']["preferred"] / 6
         }
         
         user_df = pd.DataFrame([user_needs])
@@ -124,46 +116,53 @@ async def diet_recommendation(info: Info):
                 "unit": "kg/m²"
             },
             "Bmr": calcBmr,
-            "Cluster": user_cluster,
-            "WaterIntake": waterClac
+            "WaterIntake": waterClac,
+            "Cluster": user_cluster
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
     
 
-@app.get("/food-data")
-async def get_json_data():
-    JSON_FILE_PATH = "food_data.json"
-    try:
-        with open(JSON_FILE_PATH, "r") as file:
-            data = json.load(file)
-        return data
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="File not found")
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON format")
 
 
 @app.get("/recommended_meals/")
 async def search_items(cluster: int):
-    if cluster < 0 or cluster > 5:
-        raise HTTPException(status_code=400, detail="Cluster must be between 0 and 5")
+    if cluster < 0 or cluster > 4:
+        raise HTTPException(status_code=400, detail="Cluster must be between 0 and 4")
     
-    results = data[data['Cluster'] == cluster].sample(1000)
-    return {"Recommendation": results.to_dict(orient='records')}
+    file_name = f"food{'' if cluster == 0 else cluster}.json"
 
-
-
-@app.post("/chat")
-async def chat(request: MessageInput):
     try:
-        response = ollama.chat(model="qwen3:1.7b",
-                            messages=[{"role": "system", "content": 'You are a helpful assistant. Only return the final answer directly. Do not explain or show your reasoning. Avoid using <think> tags.'},
-                            {"role": "user", "content": request.message}])['message']['content']
-        row_response = re.split(r'</think>\s*', response, maxsplit=1)[-1]
-        return {
-            "response": row_response.strip(),
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        with open(file_name, "r") as f:
+            data = json.load(f)
+
+        # Extract list of recipes
+        recipes = list(data.values())
+
+        # Take a sample of up to 1000 items
+        sample = random.sample(recipes, min(1000, len(recipes)))
+
+        return sample
+
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=f"File {file_name} not found")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail=f"Error decoding JSON from {file_name}")
+
+
+
+
+
+# @app.post("/chat")
+# async def chat(request: MessageInput):
+#     try:
+#         response = ollama.chat(model="qwen3:1.7b",
+#                             messages=[{"role": "system", "content": 'You are a helpful assistant. Only return the final answer directly. Do not explain or show your reasoning. Avoid using <think> tags.'},
+#                             {"role": "user", "content": request.message}])['message']['content']
+#         row_response = re.split(r'</think>\s*', response, maxsplit=1)[-1]
+#         return {
+#             "response": row_response.strip(),
+#         }
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=str(e))
