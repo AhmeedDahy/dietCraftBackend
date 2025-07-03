@@ -1,12 +1,9 @@
-import re
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.encoders import jsonable_encoder
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, conint, confloat, validator, Field
+from pydantic import BaseModel, validator, Field
 
 import json
 import pickle
-import numpy as np
 import pandas as pd
 import random
 from bmi import bmi
